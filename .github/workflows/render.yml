@@ -46,6 +46,7 @@ jobs:
       - name: Generate Audio Assets (ElevenLabs or OpenSource)
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          COQUI_TOS_AGREED: 1
         run: |
           python scripts/tts_generator.py script.json
 
