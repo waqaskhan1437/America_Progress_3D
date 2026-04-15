@@ -113,8 +113,10 @@ def main():
                 
                 scene["voiceUrl"] = f"/voices/scene_{idx}.wav"
                 
-        except ImportError:
-            print("ERROR: TTS library not installed (run pip install TTS)")
+        except ImportError as e:
+            import traceback
+            print("ERROR: An import error occurred while loading Coqui TTS.")
+            traceback.print_exc()
             sys.exit(1)
         except Exception as e:
             print(f"ERROR generating open source TTS: {e}")
