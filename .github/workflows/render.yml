@@ -41,10 +41,7 @@ jobs:
       - name: Install Python Dependencies (TTS)
         run: |
           python -m pip install --upgrade pip
-          pip install requests torch
-          # We only install TTS if opensource is selected to save pipeline time
-          # However, normally you install it here:
-          # pip install TTS
+          pip install requests torch TTS
           
       - name: Generate Audio Assets (ElevenLabs or OpenSource)
         env:
