@@ -1,91 +1,71 @@
-name: Render Dynamic Video
+name: Render Remotion Video
 
 on:
   workflow_dispatch:
     inputs:
       video_title:
-        description: 'Video Title'
+        description: 'Title of the video'
         required: true
-        default: 'Dynamic Video'
+        default: 'Automated Video'
       video_script:
-        description: 'Video Script JSON'
+        description: 'JSON script payload'
         required: true
-        default: '{"title":"Dynamic Video","scenes":[{"title":"Welcome","description":"Amazing video","keywords":["star"]}],"duration":30}'
-
-env:
-  VIDEO_SCRIPT: ${{ github.event.inputs.video_script }}
-  VIDEO_TITLE: ${{ github.event.inputs.video_title }}
-
+        
 jobs:
   render:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg curl python3-pip
-
-      - name: Install Python dependencies
-        run: pip3 install pillow
-
-      - name: Generate Video
-        run: python3 generate_video.py
-
-      - name: Create Video with FFmpeg
-        run: |
-          cd /tmp/frames
-          ffmpeg -y -framerate 30 -i frame_%05d.png -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p /tmp/output_video.mp4
-          ls -lh /tmp/output_video.mp4
-
-      - name: Upload to catbox.moe
-        id: catbox
-        run: |
-          # Try catbox with different method
-          response=$(curl -s -X POST \
-            -F "reqtype=fileupload" \
-            -F "time=72h" \
-            -F "fileToUpload=@/tmp/output_video.mp4" \
-            https://catbox.moe/user/api.php 2>/dev/null || echo "FAILED")
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
           
-          echo "Catbox response: $response"
-          echo "VIDEO_URL=$response" >> $GITHUB_OUTPUT
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
           
-          # If catbox fails, try 0x0.st
-          if [[ "$response" == "FAILED" ]] || [[ ! "$response" == *.catbox.moe* ]]; then
-            echo "Trying 0x0.st..."
-            alt_response=$(curl -s -X POST -F "file=@/tmp/output_video.mp4" https://0x0.st)
-            echo "0x0 response: $alt_response"
-            if [[ "$alt_response" == http* ]]; then
-              echo "VIDEO_URL=$alt_response" >> $GITHUB_OUTPUT
-              echo "0x0 URL: $alt_response"
-            fi
-          fi
+      - name: Install Node Dependencies
+        run: npm ci
+        
+      - name: Parse & Save Script
+        run: |
+          # Save the dispatched script to a local JSON file so Python and Remotion can use it
+          echo '${{ github.event.inputs.video_script }}' > script.json
 
-      - name: Upload to GitHub Artifacts
-        id: artifact
+      - name: Install Python Dependencies (TTS)
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests torch
+          # We only install TTS if opensource is selected to save pipeline time
+          # However, normally you install it here:
+          # pip install TTS
+          
+      - name: Generate Audio Assets (ElevenLabs or OpenSource)
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          python scripts/tts_generator.py script.json
+
+      - name: Render Video
+        run: |
+          # Pass the possibly updated script.json to Remotion via environment variables or CLI
+          # Note: In standard remotion you can pass props via --props='script.json'
+          npx remotion render VideoComposition out/video.mp4 --props=script.json
+          
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: video-${{ github.run_number }}
-          path: /tmp/output_video.mp4
-          retention-days: 30
-
-      - name: Create Video Info
+          name: video-${{ github.run_id }}
+          path: out/video.mp4
+          retention-days: 1
+          
+      - name: Upload to Catbox (Optional Online Link)
         run: |
-          echo "Title: ${{ env.VIDEO_TITLE }}" > video_info.txt
-          echo "Catbox: ${{ steps.catbox.outputs.VIDEO_URL }}" >> video_info.txt
-          echo "ArtifactID: ${{ steps.artifact.outputs.artifact-id }}" >> video_info.txt
-          echo "RunID: ${{ github.run_id }}" >> video_info.txt
-          echo "Download: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact.outputs.artifact-id }}" >> video_info.txt
-          cat video_info.txt
-
-      - name: Display Result
-        run: |
-          echo "=========================================="
-          echo "Title: ${{ env.VIDEO_TITLE }}"
-          echo "Catbox URL: ${{ steps.catbox.outputs.VIDEO_URL }}"
-          echo "Download: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact.outputs.artifact-id }}"
-          echo "=========================================="
+          RESPONSE=$(curl -F "reqtype=fileupload" -F "fileToUpload=@out/video.mp4" https://catbox.moe/user/api.php)
+          echo "Video uploaded to: $RESPONSE"
