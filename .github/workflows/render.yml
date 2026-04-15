@@ -30,6 +30,9 @@ jobs:
           bpy.ops.object.select_all(action='SELECT')
           bpy.ops.object.delete()
 
+          # Set render engine to EEVEE (not Cycles)
+          bpy.context.scene.render.engine = 'BLENDER_EEVEE'
+
           # Create globe
           bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=4, radius=4, location=(0, 0, 0))
           globe = bpy.context.object
@@ -94,8 +97,8 @@ jobs:
           light = bpy.context.object
           light.data.energy = 3
 
-          # Render settings
-          bpy.context.scene.render.engine = 'CYCLES'
+          # Render settings - USE EEVEE
+          bpy.context.scene.render.engine = 'BLENDER_EEVEE'
           bpy.context.scene.render.resolution_x = 1280
           bpy.context.scene.render.resolution_y = 720
           bpy.context.scene.frame_start = 1
@@ -103,10 +106,9 @@ jobs:
           
           # Save scene
           bpy.ops.wm.save_as_mainfile(filepath="/tmp/america_scene.blend")
-          print("Scene saved!")
+          print("Scene saved with EEVEE!")
           PYTHON_EOF
           blender -b --python /tmp/create_scene.py
-          ls -la /tmp/america_scene.blend
 
       - name: Create animation script
         run: |
