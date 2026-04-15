@@ -1,10 +1,19 @@
-name: Render America Progress Video
+name: Render Dynamic Video
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+    inputs:
+      video_title:
+        description: 'Video Title'
+        required: true
+        default: 'Dynamic Video'
+      video_script:
+        description: 'Video Script JSON'
+        required: true
+        default: '{"title":"Dynamic Video","scenes":[{"title":"Welcome","description":"Amazing animated video","keywords":["star","celebrate"]},{"title":"Explore","description":"Discover new horizons","keywords":["globe","world"]},{"title":"Achieve","description":"Reach for the stars","keywords":["rocket","start"]},{"title":"Celebrate","description":"Success and joy","keywords":["celebration","heart"]}],"duration":30}'
+
+env:
+  VIDEO_SCRIPT: ${{ github.event.inputs.video_script }}
 
 jobs:
   render:
@@ -17,146 +26,37 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg curl
+          sudo apt-get install -y ffmpeg curl python3-pip
 
       - name: Install Python dependencies
         run: pip3 install pillow
 
       - name: Generate Video
-        run: |
-          python3 << 'PYTHON_EOF'
-          from PIL import Image, ImageDraw, ImageFont
-          import os
-
-          os.makedirs("/tmp/frames", exist_ok=True)
-          
-          total_frames = 600
-          
-          scenes = [
-              (1, 50, "1607", "Colonial Beginning", "Jamestown, Virginia", "🌍"),
-              (51, 100, "1776", "Independence", "Declaration of Independence", "🎆"),
-              (101, 150, "1803", "Louisiana Purchase", "Nation Doubled", "📜"),
-              (151, 200, "1865", "Civil War Ends", "Reconstruction Era", "⚔️"),
-              (201, 250, "1900", "Industrial Revolution", "Factories & Railroads", "🏭"),
-              (251, 300, "1920", "Roaring Twenties", "Jazz Age Prosperity", "🎺"),
-              (301, 350, "1945", "World War II", "Allied Victory", "🕊️"),
-              (351, 400, "1960", "Post-War Boom", "Suburbs & Highways", "🏠"),
-              (401, 450, "2000", "Digital Age", "Internet & Technology", "💻"),
-              (451, 500, "2010", "Modern Era", "Technology Leaders", "🚀"),
-              (501, 600, "2024", "Modern America", "Innovation Leader", "⭐"),
-          ]
-
-          factors = ["🏭 Industrial Innovation", "🌍 Immigration & Diversity", "⛽ Natural Resources", 
-                    "🎓 Education & Research", "⚖️ Democratic Governance", "💰 Capital Investment"]
-
-          base = Image.new('RGB', (1920, 1080), (15, 15, 25))
-          
-          print(f"Generating {total_frames} frames...")
-          for frame in range(1, total_frames + 1):
-              current = scenes[-1]
-              for s in scenes:
-                  if s[0] <= frame <= s[1]:
-                      current = s
-                      break
-              
-              start_f, end_f, year, title, desc, icon = current
-              
-              img = base.copy()
-              draw = ImageDraw.Draw(img)
-              
-              cx, cy, size = 960, 500, 200
-              
-              # Draw globe with gradient
-              draw.ellipse([cx-size-20, cy-size-20, cx+size+20, cy+size+20], fill=(20, 30, 60))
-              draw.ellipse([cx-size, cy-size, cx+size, cy+size], fill=(30, 60, 120))
-              draw.ellipse([cx-size, cy-size, cx+size, cy+size], outline=(100, 150, 255), width=6)
-              
-              # Draw latitude lines
-              for lat in range(-60, 90, 30):
-                  y = cy - int(lat * 2)
-                  draw.arc([cx-size, y-3, cx+size, y+3], 0, 180, fill=(80, 120, 200), width=1)
-              
-              # Draw continents
-              continents = [(-120, 20, 70, 55), (-70, -15, 45, 60), (20, 35, 80, 55), (80, 25, 110, 70)]
-              for lx, ly, lw, lh in continents:
-                  draw.ellipse([cx+lx-lw//2, cy+ly-lh//2, cx+lx+lw//2, cy+ly+lh//2], fill=(30, 90, 50))
-              
-              # City markers
-              num_cities = 3 + int((frame / total_frames) * 12)
-              cities = [(-74, 40), (-87, 41), (-118, 34), (-77, 38), (-122, 37), 
-                       (-80, 25), (-71, 42), (-84, 33), (2.35, 48.85), (139.69, 35.68),
-                       (-0.12, 51.5), (103.8, 1.28), (37.61, 55.75)][:num_cities]
-              
-              for lon, lat in cities:
-                  x = cx + int(lon * 3)
-                  y = cy - int(lat * 2)
-                  # Glow effect
-                  draw.ellipse([x-15, y-15, x+15, y+15], fill=(255, 50, 50, 40))
-                  draw.ellipse([x-8, y-8, x+8, y+8], fill=(255, 80, 80, 60))
-                  draw.ellipse([x-4, y-4, x+4, y+4], fill=(255, 150, 150))
-              
-              # Header
-              draw.rectangle([0, 0, 1920, 120], fill=(20, 20, 35))
-              draw.text((960, 60), f"{icon} {year}", fill=(255, 230, 0), anchor="mm", font_size=72)
-              
-              # Title
-              draw.text((960, 220), title, fill=(255, 255, 255), anchor="mm", font_size=56)
-              
-              # Description
-              draw.text((960, 300), desc, fill=(180, 180, 200), anchor="mm", font_size=32)
-              
-              # Progress bar
-              bar_w = 1400
-              progress = frame / total_frames
-              draw.rectangle([260, 1020, 1660, 1050], fill=(40, 40, 50))
-              draw.rectangle([260, 1020, 260 + int(bar_w * progress), 1050], fill=(100, 200, 255))
-              
-              # Scene info
-              scene_num = scenes.index(current) + 1
-              draw.text((200, 540), f"Chapter {scene_num}/{len(scenes)}", fill=(80, 80, 100), font_size=24)
-              
-              # Time
-              secs = frame // 2
-              mins = secs // 60
-              secs = secs % 60
-              draw.text((1720, 540), f"{mins:02d}:{secs:02d}", fill=(100, 100, 120), font_size=24)
-              
-              # Factors
-              for i, f in enumerate(factors[:6]):
-                  draw.text((50, 180 + i * 30), f, fill=(120, 120, 140), font_size=22)
-              
-              # Watermark
-              draw.text((960, 1000), "America Progress 3D", fill=(60, 60, 80), anchor="mm", font_size=18)
-              
-              img.save(f"/tmp/frames/frame_{frame:04d}.png")
-              
-              if frame % 100 == 0:
-                  print(f"  {frame}/{total_frames} frames done")
-
-          print(f"Done! {len(os.listdir('/tmp/frames'))} frames generated")
-          PYTHON_EOF
+        run: python3 generate_video.py
 
       - name: Create Video with FFmpeg
         run: |
           cd /tmp/frames
-          ffmpeg -y -framerate 2 -i frame_%04d.png -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p /tmp/america_progress.mp4
-          ls -lh /tmp/america_progress.mp4
+          ffmpeg -y -framerate 30 -i frame_%05d.png -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p /tmp/output_video.mp4
+          ls -lh /tmp/output_video.mp4
 
       - name: Upload to Catbox
         id: catbox
         run: |
-          curl -X POST -F "reqtype=fileupload" -F "time=1d" -F "fileToUpload=@/tmp/america_progress.mp4" https://catbox.moe/user/api.php > video_url.txt
+          curl -X POST -F "reqtype=fileupload" -F "time=1d" -F "fileToUpload=@/tmp/output_video.mp4" https://catbox.moe/user/api.php > video_url.txt
           cat video_url.txt
           echo "VIDEO_URL=$(cat video_url.txt)" >> $GITHUB_ENV
 
-      - name: Display Video URL
+      - name: Display Result
         run: |
+          echo "=========================================="
+          echo "Video Title: ${{ github.event.inputs.video_title }}"
           echo "Video URL: ${{ env.VIDEO_URL }}"
-          echo "::notice::Video uploaded to: ${{ env.VIDEO_URL }}"
+          echo "=========================================="
 
       - name: Upload to GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: america-progress-3d-video
-          path: /tmp/america_progress.mp4
-          retention-days: 30
+          name: generated-video-${{ github.run_number }}
+          path: /tmp/output_video.mp4
+          retention-days: 7
