@@ -10,7 +10,7 @@ on:
       video_script:
         description: 'Video Script JSON'
         required: true
-        default: '{"title":"Dynamic Video","scenes":[{"title":"Welcome","description":"Amazing animated video","keywords":["star","celebrate"]}],"duration":30}'
+        default: '{"title":"Dynamic Video","scenes":[{"title":"Welcome","description":"Amazing video","keywords":["star"]}],"duration":30}'
 
 env:
   VIDEO_SCRIPT: ${{ github.event.inputs.video_script }}
@@ -41,54 +41,51 @@ jobs:
           ffmpeg -y -framerate 30 -i frame_%05d.png -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p /tmp/output_video.mp4
           ls -lh /tmp/output_video.mp4
 
-      - name: Upload to Catbox (Anonymous)
+      - name: Upload to catbox.moe
         id: catbox
         run: |
-          # Try catbox with longer timeout
+          # Try catbox with different method
           response=$(curl -s -X POST \
             -F "reqtype=fileupload" \
             -F "time=72h" \
             -F "fileToUpload=@/tmp/output_video.mp4" \
-            --connect-timeout 30 \
-            --max-time 120 \
-            https://catbox.moe/user/api.php)
+            https://catbox.moe/user/api.php 2>/dev/null || echo "FAILED")
           
-          if echo "$response" | grep -q "catbox.moe"; then
-            echo "VIDEO_URL=$response" >> $GITHUB_ENV
-            echo "Catbox URL: $response"
-          else
-            echo "Catbox upload response: $response"
-            echo "VIDEO_URL=" >> $GITHUB_ENV
+          echo "Catbox response: $response"
+          echo "VIDEO_URL=$response" >> $GITHUB_OUTPUT
+          
+          # If catbox fails, try 0x0.st
+          if [[ "$response" == "FAILED" ]] || [[ ! "$response" == *.catbox.moe* ]]; then
+            echo "Trying 0x0.st..."
+            alt_response=$(curl -s -X POST -F "file=@/tmp/output_video.mp4" https://0x0.st)
+            echo "0x0 response: $alt_response"
+            if [[ "$alt_response" == http* ]]; then
+              echo "VIDEO_URL=$alt_response" >> $GITHUB_OUTPUT
+              echo "0x0 URL: $alt_response"
+            fi
           fi
 
       - name: Upload to GitHub Artifacts
         id: artifact
         uses: actions/upload-artifact@v4
         with:
-          name: video-${{ github.run_number }}-${{ github.run_id }}
+          name: video-${{ github.run_number }}
           path: /tmp/output_video.mp4
-          retention-days: 7
+          retention-days: 30
 
-      - name: Create Output File
+      - name: Create Video Info
         run: |
-          mkdir -p output
-          echo "Title: ${{ env.VIDEO_TITLE }}" > output/video_info.txt
-          echo "Catbox: ${{ env.VIDEO_URL }}" >> output/video_info.txt
-          echo "Artifact: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact.outputs.artifact-id }}" >> output/video_info.txt
-          echo "Run ID: ${{ github.run_id }}" >> output/video_info.txt
-          echo "Artifact ID: ${{ steps.artifact.outputs.artifact-id }}" >> output/video_info.txt
-          
-      - name: Upload Video Info
-        uses: actions/upload-artifact@v4
-        with:
-          name: video-info
-          path: output/video_info.txt
-          retention-days: 7
+          echo "Title: ${{ env.VIDEO_TITLE }}" > video_info.txt
+          echo "Catbox: ${{ steps.catbox.outputs.VIDEO_URL }}" >> video_info.txt
+          echo "ArtifactID: ${{ steps.artifact.outputs.artifact-id }}" >> video_info.txt
+          echo "RunID: ${{ github.run_id }}" >> video_info.txt
+          echo "Download: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact.outputs.artifact-id }}" >> video_info.txt
+          cat video_info.txt
 
       - name: Display Result
         run: |
           echo "=========================================="
-          echo "Video Title: ${{ env.VIDEO_TITLE }}"
-          echo "Catbox URL: ${{ env.VIDEO_URL }}"
-          echo "Artifact ID: ${{ steps.artifact.outputs.artifact-id }}"
+          echo "Title: ${{ env.VIDEO_TITLE }}"
+          echo "Catbox URL: ${{ steps.catbox.outputs.VIDEO_URL }}"
+          echo "Download: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact.outputs.artifact-id }}"
           echo "=========================================="
