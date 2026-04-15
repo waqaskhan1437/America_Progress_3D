@@ -20,105 +20,183 @@ jobs:
       - name: Install Python packages
         run: pip install pillow numpy
 
-      - name: Generate 3D Frame Images
+      - name: Generate 2-Minute Detailed Video
         run: |
           python3 << 'PYTHON_EOF'
           from PIL import Image, ImageDraw, ImageFont
           import os
+          import math
 
           # Create output directory
           os.makedirs("/tmp/frames", exist_ok=True)
 
-          # Timeline data with colors
-          timeline = [
-              (1, "1607: Colonial Beginning\nJamestown, Virginia", (139, 69, 19)),
-              (60, "1776: Independence\nDeclaration of Independence", (70, 130, 180)),
-              (120, "1803: Louisiana Purchase\nNation Doubled", (34, 139, 34)),
-              (180, "1865: Civil War Ends\nReconstruction", (128, 128, 128)),
-              (240, "1900: Industrial Power\nFactories & Railroads", (255, 140, 0)),
-              (300, "1950: World Superpower\nPost-WWII Era", (0, 100, 200)),
-              (360, "2024: Modern America\nTechnology & Innovation", (0, 200, 100)),
+          # SCENE-BY-SCENE SCRIPT (2 minutes = 120 seconds at 2fps = 240 frames)
+          # Each scene has: (start_frame, end_frame, title, description, bg_color, elements)
+          
+          scenes = [
+              # CHAPTER 1: COLONIAL ERA (Frames 1-40)
+              (1, 20, "1607: Colonial Beginning", "First permanent English settlement at Jamestown, Virginia", 
+               (30, 20, 10), ["ship", " settlements"]),
+              (21, 40, "1607-1733: 13 Colonies", "From Massachusetts to Georgia along the Atlantic coast", 
+               (50, 30, 20), ["colonies_map"]),
+
+              # CHAPTER 2: REVOLUTION & EXPANSION (Frames 41-80)
+              (41, 55, "1776: Independence", "Declaration of Independence signs the birth of a nation",
+               (70, 70, 50), ["declaration", "flag"]),
+              (56, 70, "1803: Louisiana Purchase", "Thomas Jefferson doubles the nation for $15 million",
+               (40, 80, 30), ["map_expansion"]),
+              (71, 80, "1849: Westward Expansion", "Gold Rush and manifest destiny drive Americans west",
+               (90, 70, 40), ["wagon_train", "gold"]),
+
+              # CHAPTER 3: CIVIL WAR & INDUSTRY (Frames 81-120)
+              (81, 95, "1861-1865: Civil War", "Brother against brother - Union defeats Confederacy",
+               (60, 60, 60), ["union_confederate"]),
+              (96, 110, "1865-1900: Industrial Revolution", "Factories, steel, and railroads transform America",
+               (80, 60, 40), ["factory", "railroad"]),
+              (111, 120, "1880-1920: Immigration Wave", "30 million immigrants seek the American Dream",
+               (70, 50, 80), ["statue_liberty", "ships"]),
+
+              # CHAPTER 4: WORLD POWER (Frames 121-160)
+              (121, 135, "1917-1918: World War I", "America enters the Great War and becomes a world power",
+               (100, 90, 50), ["troops", "medals"]),
+              (136, 150, "1920s: Roaring Twenties", "Jazz age, prosperity, and cultural revolution",
+               (120, 80, 60), ["jazz", "cars"]),
+              (151, 160, "1929-1939: Great Depression", "Economic collapse - 25% unemployment devastates the nation",
+               (40, 40, 50), ["bread_line", "dust_bowl"]),
+
+              # CHAPTER 5: WWII & SUPERPOWER (Frames 161-200)
+              (161, 175, "1941-1945: World War II", "From Pearl Harbor to D-Day - America leads Allied victory",
+               (90, 90, 80), ["pearl_harbor", "d_day"]),
+              (176, 190, "1945-1960: Post-War Boom", "Suburbs, highways, and the American Dream becomes reality",
+               (100, 120, 140), ["suburbs", "highways"]),
+              (191, 200, "1950-1991: Cold War Era", "Space Race and ideological battle against Soviet Union",
+               (80, 80, 100), ["astronaut", "rocket"]),
+
+              # CHAPTER 6: MODERN AMERICA (Frames 201-240)
+              (201, 215, "1990s-2000s: Digital Revolution", "Internet, computers, and technology reshape society",
+               (60, 100, 150), ["computer", "internet"]),
+              (216, 230, "2001-2024: Modern Superpower", "Innovation leader in AI, space exploration, and economy",
+               (70, 130, 120), ["skyline_modern", "tech"]),
+              (231, 240, "The Future Awaits", "America's story continues with new generations",
+               (50, 80, 100), ["future", "stars"]),
           ]
 
-          # Development factors text
+          # Key development factors to show
           factors = [
-              "• Industrial Innovation",
-              "• Immigration & Diversity", 
-              "• Natural Resources",
-              "• Education & Research",
-              "• Democratic Governance",
-              "• Capital Investment"
+              "🏭 Industrial Innovation",
+              "🌍 Immigration & Diversity",
+              "⛽ Natural Resources", 
+              "🎓 Education & Research",
+              "⚖️ Democratic Governance",
+              "💰 Capital Investment"
           ]
 
-          # Create frames for each timeline point
-          for frame_num, (frame_id, text, color) in enumerate(timeline):
-              # Create image with dark background
-              img = Image.new('RGB', (1280, 720), (10, 15, 30))
+          def draw_globe(draw, cx, cy, size, land_color=(30, 100, 40)):
+              # Draw ocean
+              draw.ellipse([cx-size, cy-size, cx+size, cy+size], fill=(20, 60, 120))
+              # Draw simplified continents
+              continents = [
+                  (-0.8, 0.3, 0.5),  # North America
+                  (-0.6, -0.4, 0.4), # South America
+                  (0.1, 0.3, 0.5),   # Europe
+                  (0.4, 0.2, 0.7),   # Asia/Africa
+              ]
+              for lx, ly, s in continents:
+                  draw.ellipse([cx + lx*size - s*size, cy + ly*size - s*size,
+                               cx + lx*size + s*size, cy + ly*size + s*size],
+                              fill=land_color)
+
+          def draw_city_marker(draw, cx, cy, lon, lat, size=8):
+              x = cx + int(lon * 2.5)
+              y = cy - int(lat * 2.5)
+              draw.ellipse([x-size, y-size, x+size, y+size], fill=(255, 50, 50))
+
+          # Generate all frames
+          for frame in range(1, 241):
+              # Find current scene
+              current_scene = scenes[0]
+              for scene in scenes:
+                  if scene[0] <= frame <= scene[1]:
+                      current_scene = scene
+                      break
+              
+              start_f, end_f, title, desc, bg_color, elements = current_scene
+              
+              # Calculate animation progress within scene
+              scene_progress = (frame - start_f) / (end_f - start_f)
+              
+              # Create image
+              img = Image.new('RGB', (1280, 720), bg_color)
               draw = ImageDraw.Draw(img)
-
-              # Draw globe (simple circle representation)
-              center_x, center_y = 640, 360
-              radius = 200
               
-              # Ocean
-              draw.ellipse([center_x - radius, center_y - radius, 
-                          center_x + radius, center_y + radius], 
-                         fill=(20, 60, 120))
+              # Draw globe with rotation effect
+              globe_size = 180 + int(20 * math.sin(scene_progress * math.pi))
+              draw_globe(draw, 640, 300, globe_size)
               
-              # Land masses (simplified)
-              land_positions = [
-                  (-80, 35, 50, 40),   # North America
-                  (-50, -10, 40, 60),  # South America  
-                  (10, 40, 70, 50),    # Europe
-                  (50, 30, 100, 70),   # Asia/Africa
-              ]
-              for lx, ly, lw, lh in land_positions:
-                  draw.ellipse([center_x + lx - lw//2, center_y + ly - lh//2,
-                               center_x + lx + lw//2, center_y + ly + lh//2],
-                              fill=(30, 100, 40))
-
-              # City markers (red dots)
-              cities = [
-                  (-74, 40, "New York"),
-                  (-118, 34, "Los Angeles"),
-                  (-87, 41, "Chicago"),
-                  (-77, 38, "Washington"),
-              ]
-              for lon, lat, name in cities:
-                  # Convert lat/lon to position
-                  x = center_x + int(lon * 2.5)
-                  y = center_y - int(lat * 2.5)
-                  draw.ellipse([x-6, y-6, x+6, y+6], fill=(255, 50, 50))
-
-              # Draw timeline text
-              draw.text((center_x, 550), text, fill=color, anchor="mm")
-
-              # Draw factors on left side
-              for i, factor in enumerate(factors):
-                  draw.text((50, 100 + i * 35), factor, fill=(180, 180, 180))
-
-              # Draw title
-              draw.text((center_x, 50), "THE RISE OF AMERICA", fill=(255, 215, 0), anchor="mm")
+              # Add city markers based on era
+              if frame < 80:  # Colonial/Early
+                  cities = [(-74, 40), (-75, 39), (-77, 38)]
+              elif frame < 120:  # Industrial
+                  cities = [(-74, 40), (-87, 41), (-118, 34), (-42, 41)]
+              elif frame < 160:  # WWII era
+                  cities = [(-74, 40), (-87, 41), (-118, 34), (-77, 38), (-122, 37)]
+              else:  # Modern
+                  cities = [(-74, 40), (-118, 34), (-87, 41), (-77, 38), (-122, 37), (-80, 25), (-118, 34)]
               
-              # Draw frame number
-              draw.text((1180, 680), f"Frame {frame_id}", fill=(100, 100, 100))
-
+              for lon, lat in cities:
+                  draw_city_marker(draw, 640, 300, lon, lat)
+              
+              # Draw title at top
+              draw.text((640, 60), title, fill=(255, 215, 0), anchor="mm")
+              
+              # Draw description at bottom
+              draw.text((640, 650), desc, fill=(220, 220, 220), anchor="mm")
+              
+              # Draw progress bar
+              bar_width = 1000
+              progress = frame / 240
+              draw.rectangle([140, 700, 140 + int(bar_width * progress), 710], fill=(255, 215, 0))
+              draw.rectangle([140, 700, 1140, 710], outline=(100, 100, 100))
+              
+              # Draw chapter indicator
+              chapter = 1
+              for i, scene in enumerate(scenes):
+                  if frame >= scene[0]:
+                      chapter = i + 1
+              draw.text((1200, 50), f"Ch {chapter}/6", fill=(150, 150, 150), anchor="rm")
+              
+              # Draw development factors (fade in after frame 60)
+              if frame > 60:
+                  alpha = min(1, (frame - 60) / 30)
+                  for i, factor in enumerate(factors):
+                      y_pos = 80 + i * 30
+                      draw.text((50, y_pos), factor, fill=(180, 180, 180))
+              
+              # Draw timeline dots
+              timeline_years = [1, 40, 80, 120, 160, 200, 240]
+              year_labels = ["1607", "1776", "1865", "1900", "1945", "2000", "2024"]
+              for i, (f, y) in enumerate(zip(timeline_years, year_labels)):
+                  x = 140 + (f / 240) * 1000
+                  if f <= frame:
+                      draw.ellipse([x-5, 715, x+5, 725], fill=(255, 215, 0))
+                  else:
+                      draw.ellipse([x-5, 715, x+5, 725], fill=(80, 80, 80))
+                  if i < len(year_labels):
+                      draw.text((x, 685), y, fill=(100, 100, 100), anchor="mm")
+              
               # Save frame
-              img.save(f"/tmp/frames/frame_{frame_id:04d}.png")
+              img.save(f"/tmp/frames/frame_{frame:04d}.png")
 
-          print("Generated 8 keyframe images!")
-
-          # List frames
-          for f in sorted(os.listdir("/tmp/frames")):
-              print(f"  {f}")
+          print("Generated 240 frames for 2-minute video!")
+          print(f"Total frames: {len(os.listdir('/tmp/frames'))}")
           PYTHON_EOF
 
       - name: Create Video with FFmpeg
         run: |
-          ls /tmp/frames/
+          ls /tmp/frames/ | head -10
           cd /tmp/frames
           ffmpeg -framerate 2 -i frame_%04d.png -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4
-          ls -la /tmp/america_progress.mp4
+          ls -lh /tmp/america_progress.mp4
 
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
