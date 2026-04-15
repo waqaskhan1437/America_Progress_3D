@@ -18,170 +18,95 @@ jobs:
           sudo apt-get install -y blender ffmpeg wget unzip
 
       - name: Generate 3D Globe
-        run: |
-          cat > /tmp/generate_globe.py << 'PYTHON_EOF'
-          import bpy
-          import math
-          import os
-          
-          # Clear scene
-          bpy.ops.object.select_all(action='SELECT')
-          bpy.ops.object.delete()
-          
-          # Create icosphere (globe)
-          bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=4, radius=5, location=(0, 0, 0))
-          globe = bpy.context.object
-          globe.name = "Globe"
-          
-          # Create blue ocean material
-          mat = bpy.data.materials.new(name="Ocean")
-          mat.use_nodes = True
-          nodes = mat.node_tree.nodes
-          bsdf = nodes.get("Principled BSDF")
-          bsdf.inputs[0].default_value = (0.05, 0.15, 0.35, 1)  # Deep blue
-          bsdf.inputs[1].default_value = (0.8, 0.8, 0.8, 1)  # Metallic
-          bsdf.inputs[5].default_value = (0.5, 0.5, 0.5)  # Roughness
-          globe.data.materials.append(mat)
-          
-          # Add continent-like shapes (simplified)
-          for i in range(8):
-              bpy.ops.mesh.primitive_uv_sphere_add(radius=5.3, segments=16, ring_count=8)
-              continent = bpy.context.object
-              continent.location = (
-                  math.sin(i * 0.8) * 3,
-                  math.cos(i * 0.8) * 3,
-                  math.sin(i * 1.2) * 1.5
-              )
-              continent.scale = (1.5 + i*0.2, 1 + i*0.1, 0.3)
-              
-              # Green land material
-              land_mat = bpy.data.materials.new(name=f"Land{i}")
-              land_mat.use_nodes = True
-              nodes = land_mat.node_tree.nodes
-              bsdf = nodes.get("Principled BSDF")
-              bsdf.inputs[0].default_value = (0.1 + i*0.05, 0.4 + i*0.05, 0.1, 1)
-              continent.data.materials.append(land_mat)
-          
-          # Add city markers (red dots)
-          cities = [
-              (-74.006, 40.7128, "New York"),
-              (-118.2437, 34.0522, "Los Angeles"),
-              (-87.6298, 41.8781, "Chicago"),
-              (-77.0369, 38.9072, "Washington"),
-              (-122.4194, 37.7749, "San Francisco"),
-          ]
-          
-          for lon, lat, name in cities:
-              # Convert lat/lon to 3D position
-              x = 5.5 * math.cos(lat * math.pi / 180) * math.sin(lon * math.pi / 180)
-              y = 5.5 * math.cos(lat * math.pi / 180) * math.cos(lon * math.pi / 180)
-              z = 5.5 * math.sin(lat * math.pi / 180)
-              
-              bpy.ops.mesh.primitive_uv_sphere_add(radius=0.15, location=(x, y, z))
-              city = bpy.context.object
-              
-              # Red marker material
-              city_mat = bpy.data.materials.new(name=f"City_{name}")
-              city_mat.use_nodes = True
-              nodes = city_mat.node_tree.nodes
-              bsdf = nodes.get("Principled BSDF")
-              bsdf.inputs[0].default_value = (1, 0.1, 0.1, 1)  # Red
-              city.data.materials.append(city_mat)
-          
-          # Save the blend file
-          bpy.ops.wm.save_as_mainfile(filepath="/tmp/globe.blend")
-          print("Globe created successfully!")
-          PYTHON_EOF
-          blender -b --python /tmp/generate_globe.py
+        run: echo "Skipping - creating globe in scene step"
 
       - name: Create America Progress Scene
         run: |
           cat > /tmp/create_scene.py << 'PYTHON_EOF'
           import bpy
           import math
-          import os
 
           # Clear existing scene
           bpy.ops.object.select_all(action='SELECT')
           bpy.ops.object.delete()
 
-          # Load the pre-generated globe
-          bpy.ops.wm.open_mainfile(filepath="/tmp/globe.blend")
+          # Create globe
+          bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=4, radius=4, location=(0, 0, 0))
+          globe = bpy.context.object
+          globe.name = "Globe"
+          
+          # Blue ocean material
+          mat = bpy.data.materials.new(name="Ocean")
+          mat.use_nodes = True
+          bsdf = mat.node_tree.nodes.get("Principled BSDF")
+          bsdf.inputs[0].default_value = (0.05, 0.15, 0.35, 1)
+          globe.data.materials.append(mat)
 
-          # Get the globe object
-          globe = bpy.data.objects.get("Globe")
-          if globe:
-              # Animate globe rotation
-              globe.rotation_euler = (0, 0, 0)
-              globe.keyframe_insert(data_path="rotation_euler", frame=1)
-              globe.rotation_euler = (0, 0, math.radians(360))
-              globe.keyframe_insert(data_path="rotation_euler", frame=420)
+          # Animate globe rotation
+          globe.rotation_euler = (0, 0, 0)
+          globe.keyframe_insert(data_path="rotation_euler", frame=1)
+          globe.rotation_euler = (0, 0, math.radians(360))
+          globe.keyframe_insert(data_path="rotation_euler", frame=420)
 
-          # Create timeline text overlay data
+          # Timeline text
           timeline_data = [
               (1, 60, "1607: Colonial Beginning\nJamestown, Virginia"),
               (61, 120, "1776: Independence\nDeclaration of Independence"),
               (121, 180, "1803: Louisiana Purchase\nDoubled the nation"),
-              (181, 240, "1865: Civil War Ends\nReconstruction begins"),
-              (241, 300, "1900: Industrial Power\nFactories & Railroads"),
-              (301, 360, "1950: World Superpower\nPost-WWII prosperity"),
-              (361, 420, "2024: Modern America\nTechnology & Innovation")
+              (181, 240, "1865: Civil War Ends"),
+              (241, 300, "1900: Industrial Power\nFactories"),
+              (301, 360, "1950: World Superpower"),
+              (361, 420, "2024: Modern America")
           ]
 
-          # Create text objects for timeline
           for frame_start, frame_end, text in timeline_data:
               bpy.ops.object.text_add()
-              text_obj = bpy.context.object
-              text_obj.data.body = text
-              text_obj.location = (0, 0, 8)
-              text_obj.rotation_euler = (math.radians(90), 0, 0)
-              text_obj.scale = (0.4, 0.4, 0.4)
-              text_obj.data.align_x = 'CENTER'
-              text_obj.data.size = 0.5
-              text_obj.data.align_y = 'CENTER'
+              txt = bpy.context.object
+              txt.data.body = text
+              txt.location = (0, 0, 6)
+              txt.rotation_euler = (math.radians(90), 0, 0)
+              txt.scale = (0.4, 0.4, 0.4)
+              txt.data.align_x = 'CENTER'
+              txt.data.size = 0.5
               
-              # Make text visible only during its timeframe
-              text_obj.hide_viewport = True
-              text_obj.hide_render = True
-              text_obj.keyframe_insert(data_path="hide_viewport", frame=1)
-              text_obj.hide_viewport = False
-              text_obj.keyframe_insert(data_path="hide_viewport", frame=frame_start)
-              text_obj.hide_viewport = True
-              text_obj.keyframe_insert(data_path="hide_viewport", frame=frame_end)
+              txt.hide_viewport = True
+              txt.keyframe_insert(data_path="hide_viewport", frame=1)
+              txt.hide_viewport = False
+              txt.keyframe_insert(data_path="hide_viewport", frame=frame_start)
+              txt.hide_viewport = True
+              txt.keyframe_insert(data_path="hide_viewport", frame=frame_end)
 
-          # Setup camera
-          bpy.ops.object.camera_add(location=(0, -20, 10))
-          camera = bpy.context.object
-          camera.rotation_euler = (math.radians(75), 0, 0)
-          bpy.context.scene.camera = camera
+          # Camera
+          bpy.ops.object.camera_add(location=(0, -15, 8))
+          cam = bpy.context.object
+          cam.rotation_euler = (math.radians(70), 0, 0)
+          bpy.context.scene.camera = cam
           
-          # Animate camera
-          camera.location = (20, -20, 10)
-          camera.keyframe_insert(data_path="location", frame=1)
-          camera.location = (-20, 20, 10)
-          camera.keyframe_insert(data_path="location", frame=210)
-          camera.location = (0, -25, 15)
-          camera.keyframe_insert(data_path="location", frame=420)
+          cam.location = (15, -15, 8)
+          cam.keyframe_insert(data_path="location", frame=1)
+          cam.location = (-15, 15, 10)
+          cam.keyframe_insert(data_path="location", frame=210)
+          cam.location = (0, -18, 12)
+          cam.keyframe_insert(data_path="location", frame=420)
 
-          # Add light
+          # Light
           bpy.ops.object.light_add(type='SUN', location=(10, 10, 20))
           light = bpy.context.object
           light.data.energy = 3
-          light.rotation_euler = (math.radians(45), math.radians(30), 0)
 
-          # Set render settings
+          # Render settings
           bpy.context.scene.render.engine = 'CYCLES'
           bpy.context.scene.render.resolution_x = 1280
           bpy.context.scene.render.resolution_y = 720
-          bpy.context.scene.render.filepath = "/tmp/frame_"
           bpy.context.scene.frame_start = 1
           bpy.context.scene.frame_end = 420
           
-          # Save blend file
+          # Save scene
           bpy.ops.wm.save_as_mainfile(filepath="/tmp/america_scene.blend")
-          
-          print("Scene created successfully!")
+          print("Scene saved!")
           PYTHON_EOF
+          blender -b --python /tmp/create_scene.py
+          ls -la /tmp/america_scene.blend
 
       - name: Create animation script
         run: |
