@@ -15,7 +15,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender ffmpeg wget unzip
+          sudo apt-get install -y blender ffmpeg wget unzip libegl1 libgl1
 
       - name: Generate 3D Globe
         run: echo "Skipping - creating globe in scene step"
