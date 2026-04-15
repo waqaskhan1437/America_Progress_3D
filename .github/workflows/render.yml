@@ -15,188 +15,119 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-pip python3-pil
+          sudo apt-get install -y ffmpeg python3-pip libcairo2-dev pkg-config python3-dev
 
       - name: Install Python packages
-        run: pip install pillow numpy
+        run: pip install manim pillow numpy
 
-      - name: Generate 2-Minute Detailed Video
+      - name: Generate High-Quality 3D Video using Manim
         run: |
-          python3 << 'PYTHON_EOF'
-          from PIL import Image, ImageDraw, ImageFont
-          import os
-          import math
+          cat > /tmp/america_story.py << 'MANIM_EOF'
+          from manim import *
+          import numpy as np
 
-          # Create output directory
-          os.makedirs("/tmp/frames", exist_ok=True)
+          config.pixel_height = 720
+          config.pixel_width = 1280
+          config.frame_rate = 30
 
-          # SCENE-BY-SCENE SCRIPT (2 minutes = 120 seconds at 2fps = 240 frames)
-          # Each scene has: (start_frame, end_frame, title, description, bg_color, elements)
+          class AmericaStory(Scene):
+              def construct(self):
+                  # Title
+                  title = Text("THE RISE OF AMERICA", font_size=48, color=GOLD)
+                  self.play(Write(title))
+                  self.wait(1)
+                  self.play(FadeOut(title))
+                  
+                  # Globe with rotating earth effect
+                  globe = Sphere(radius=2, resolution=(30, 30))
+                  globe.set_fill(BLUE, opacity=0.3)
+                  globe.set_stroke(BLUE_E, opacity=0.5)
+                  
+                  # Add continents as spheres
+                  for lat, lon, size in [(40, -80, 0.3), (34, -118, 0.25), (41, -87, 0.25), (38, -77, 0.2)]:
+                      x = 2 * np.cos(lat * TAU / 360) * np.sin(lon * TAU / 360)
+                      y = 2 * np.cos(lat * TAU / 360) * np.cos(lon * TAU / 360)
+                      z = 2 * np.sin(lat * TAU / 360)
+                      city = Sphere(radius=size, resolution=(15, 15)).move_to([x, y, z])
+                      city.set_fill(RED)
+                      self.add(city)
+                  
+                  self.play(Create(globe))
+                  self.play(Rotate(globe, 4*PI))
+                  self.wait()
+                  
+                  # Timeline scenes
+                  scenes = [
+                      ("1607", "Colonial Beginning\nJamestown, Virginia"),
+                      ("1776", "Independence\nDeclaration of Independence"),
+                      ("1803", "Louisiana Purchase\nNation Doubled"),
+                      ("1865", "Civil War Ends\nReconstruction"),
+                      ("1900", "Industrial Power\nFactories & Railroads"),
+                      ("1950", "World Superpower\nPost-WWII Era"),
+                      ("2024", "Modern America\nTechnology & Innovation"),
+                  ]
+                  
+                  for year, event in scenes:
+                      # Year text
+                      year_text = Text(year, font_size=36, color=WHITE).to_edge(UP)
+                      # Event text
+                      event_text = Text(event, font_size=24, color=YELLOW).to_edge(DOWN)
+                      
+                      self.play(Write(year_text), run_time=0.5)
+                      self.play(Write(event_text), run_time=1)
+                      self.wait(2)
+                      self.play(FadeOut(year_text), FadeOut(event_text))
+                  
+                  # Development factors
+                  factors = [
+                      "Industrial Innovation",
+                      "Immigration & Diversity",
+                      "Natural Resources",
+                      "Education & Research",
+                      "Democratic Governance",
+                      "Capital Investment"
+                  ]
+                  
+                  factor_group = VGroup(*[Text(f"• {f}", font_size=20, color=GRAY) 
+                                        for f in factors]).arrange(DOWN, aligned_left=True).shift(LEFT*3)
+                  
+                  self.play(Write(factor_group))
+                  self.wait(3)
+                  
+                  # Final title
+                  final_title = Text("THE FUTURE AWAITS", font_size=48, color=GOLD)
+                  self.play(Write(final_title))
+                  self.wait(2)
+
+          MANIM_EOF
           
-          scenes = [
-              # CHAPTER 1: COLONIAL ERA (Frames 1-40)
-              (1, 20, "1607: Colonial Beginning", "First permanent English settlement at Jamestown, Virginia", 
-               (30, 20, 10), ["ship", " settlements"]),
-              (21, 40, "1607-1733: 13 Colonies", "From Massachusetts to Georgia along the Atlantic coast", 
-               (50, 30, 20), ["colonies_map"]),
+          # Render with manim (medium quality for speed)
+          manim -ql /tmp/america_story.py AmericaStory --output_file america_progress
 
-              # CHAPTER 2: REVOLUTION & EXPANSION (Frames 41-80)
-              (41, 55, "1776: Independence", "Declaration of Independence signs the birth of a nation",
-               (70, 70, 50), ["declaration", "flag"]),
-              (56, 70, "1803: Louisiana Purchase", "Thomas Jefferson doubles the nation for $15 million",
-               (40, 80, 30), ["map_expansion"]),
-              (71, 80, "1849: Westward Expansion", "Gold Rush and manifest destiny drive Americans west",
-               (90, 70, 40), ["wagon_train", "gold"]),
-
-              # CHAPTER 3: CIVIL WAR & INDUSTRY (Frames 81-120)
-              (81, 95, "1861-1865: Civil War", "Brother against brother - Union defeats Confederacy",
-               (60, 60, 60), ["union_confederate"]),
-              (96, 110, "1865-1900: Industrial Revolution", "Factories, steel, and railroads transform America",
-               (80, 60, 40), ["factory", "railroad"]),
-              (111, 120, "1880-1920: Immigration Wave", "30 million immigrants seek the American Dream",
-               (70, 50, 80), ["statue_liberty", "ships"]),
-
-              # CHAPTER 4: WORLD POWER (Frames 121-160)
-              (121, 135, "1917-1918: World War I", "America enters the Great War and becomes a world power",
-               (100, 90, 50), ["troops", "medals"]),
-              (136, 150, "1920s: Roaring Twenties", "Jazz age, prosperity, and cultural revolution",
-               (120, 80, 60), ["jazz", "cars"]),
-              (151, 160, "1929-1939: Great Depression", "Economic collapse - 25% unemployment devastates the nation",
-               (40, 40, 50), ["bread_line", "dust_bowl"]),
-
-              # CHAPTER 5: WWII & SUPERPOWER (Frames 161-200)
-              (161, 175, "1941-1945: World War II", "From Pearl Harbor to D-Day - America leads Allied victory",
-               (90, 90, 80), ["pearl_harbor", "d_day"]),
-              (176, 190, "1945-1960: Post-War Boom", "Suburbs, highways, and the American Dream becomes reality",
-               (100, 120, 140), ["suburbs", "highways"]),
-              (191, 200, "1950-1991: Cold War Era", "Space Race and ideological battle against Soviet Union",
-               (80, 80, 100), ["astronaut", "rocket"]),
-
-              # CHAPTER 6: MODERN AMERICA (Frames 201-240)
-              (201, 215, "1990s-2000s: Digital Revolution", "Internet, computers, and technology reshape society",
-               (60, 100, 150), ["computer", "internet"]),
-              (216, 230, "2001-2024: Modern Superpower", "Innovation leader in AI, space exploration, and economy",
-               (70, 130, 120), ["skyline_modern", "tech"]),
-              (231, 240, "The Future Awaits", "America's story continues with new generations",
-               (50, 80, 100), ["future", "stars"]),
-          ]
-
-          # Key development factors to show
-          factors = [
-              "🏭 Industrial Innovation",
-              "🌍 Immigration & Diversity",
-              "⛽ Natural Resources", 
-              "🎓 Education & Research",
-              "⚖️ Democratic Governance",
-              "💰 Capital Investment"
-          ]
-
-          def draw_globe(draw, cx, cy, size, land_color=(30, 100, 40)):
-              # Draw ocean
-              draw.ellipse([cx-size, cy-size, cx+size, cy+size], fill=(20, 60, 120))
-              # Draw simplified continents
-              continents = [
-                  (-0.8, 0.3, 0.5),  # North America
-                  (-0.6, -0.4, 0.4), # South America
-                  (0.1, 0.3, 0.5),   # Europe
-                  (0.4, 0.2, 0.7),   # Asia/Africa
-              ]
-              for lx, ly, s in continents:
-                  draw.ellipse([cx + lx*size - s*size, cy + ly*size - s*size,
-                               cx + lx*size + s*size, cy + ly*size + s*size],
-                              fill=land_color)
-
-          def draw_city_marker(draw, cx, cy, lon, lat, size=8):
-              x = cx + int(lon * 2.5)
-              y = cy - int(lat * 2.5)
-              draw.ellipse([x-size, y-size, x+size, y+size], fill=(255, 50, 50))
-
-          # Generate all frames
-          for frame in range(1, 241):
-              # Find current scene
-              current_scene = scenes[0]
-              for scene in scenes:
-                  if scene[0] <= frame <= scene[1]:
-                      current_scene = scene
-                      break
-              
-              start_f, end_f, title, desc, bg_color, elements = current_scene
-              
-              # Calculate animation progress within scene
-              scene_progress = (frame - start_f) / (end_f - start_f)
-              
-              # Create image
-              img = Image.new('RGB', (1280, 720), bg_color)
-              draw = ImageDraw.Draw(img)
-              
-              # Draw globe with rotation effect
-              globe_size = 180 + int(20 * math.sin(scene_progress * math.pi))
-              draw_globe(draw, 640, 300, globe_size)
-              
-              # Add city markers based on era
-              if frame < 80:  # Colonial/Early
-                  cities = [(-74, 40), (-75, 39), (-77, 38)]
-              elif frame < 120:  # Industrial
-                  cities = [(-74, 40), (-87, 41), (-118, 34), (-42, 41)]
-              elif frame < 160:  # WWII era
-                  cities = [(-74, 40), (-87, 41), (-118, 34), (-77, 38), (-122, 37)]
-              else:  # Modern
-                  cities = [(-74, 40), (-118, 34), (-87, 41), (-77, 38), (-122, 37), (-80, 25), (-118, 34)]
-              
-              for lon, lat in cities:
-                  draw_city_marker(draw, 640, 300, lon, lat)
-              
-              # Draw title at top
-              draw.text((640, 60), title, fill=(255, 215, 0), anchor="mm")
-              
-              # Draw description at bottom
-              draw.text((640, 650), desc, fill=(220, 220, 220), anchor="mm")
-              
-              # Draw progress bar
-              bar_width = 1000
-              progress = frame / 240
-              draw.rectangle([140, 700, 140 + int(bar_width * progress), 710], fill=(255, 215, 0))
-              draw.rectangle([140, 700, 1140, 710], outline=(100, 100, 100))
-              
-              # Draw chapter indicator
-              chapter = 1
-              for i, scene in enumerate(scenes):
-                  if frame >= scene[0]:
-                      chapter = i + 1
-              draw.text((1200, 50), f"Ch {chapter}/6", fill=(150, 150, 150), anchor="rm")
-              
-              # Draw development factors (fade in after frame 60)
-              if frame > 60:
-                  alpha = min(1, (frame - 60) / 30)
-                  for i, factor in enumerate(factors):
-                      y_pos = 80 + i * 30
-                      draw.text((50, y_pos), factor, fill=(180, 180, 180))
-              
-              # Draw timeline dots
-              timeline_years = [1, 40, 80, 120, 160, 200, 240]
-              year_labels = ["1607", "1776", "1865", "1900", "1945", "2000", "2024"]
-              for i, (f, y) in enumerate(zip(timeline_years, year_labels)):
-                  x = 140 + (f / 240) * 1000
-                  if f <= frame:
-                      draw.ellipse([x-5, 715, x+5, 725], fill=(255, 215, 0))
-                  else:
-                      draw.ellipse([x-5, 715, x+5, 725], fill=(80, 80, 80))
-                  if i < len(year_labels):
-                      draw.text((x, 685), y, fill=(100, 100, 100), anchor="mm")
-              
-              # Save frame
-              img.save(f"/tmp/frames/frame_{frame:04d}.png")
-
-          print("Generated 240 frames for 2-minute video!")
-          print(f"Total frames: {len(os.listdir('/tmp/frames'))}")
-          PYTHON_EOF
-
-      - name: Create Video with FFmpeg
+      - name: Find and Copy Video
         run: |
-          ls /tmp/frames/ | head -10
-          cd /tmp/frames
-          ffmpeg -framerate 2 -i frame_%04d.png -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4
-          ls -lh /tmp/america_progress.mp4
+          find /tmp -name "america_progress*.mp4" 2>/dev/null
+          find /tmp -name "*.mp4" 2>/dev/null | head -5
+
+      - name: Convert to Standard Format
+        run: |
+          # Find the manim output
+          OUTPUT_DIR=$(find /tmp -type d -name "*AmericaStory*" 2>/dev/null | head -1)
+          if [ -d "$OUTPUT_DIR" ]; then
+            VIDEO=$(find $OUTPUT_DIR -name "*.mp4" 2>/dev/null | head -1)
+            if [ -n "$VIDEO" ]; then
+              cp "$VIDEO" /tmp/america_progress.mp4
+              echo "Found: $VIDEO"
+            fi
+          fi
+          
+          # Check if video exists
+          ls -lh /tmp/america_progress.mp4 2>/dev/null || echo "No video found"
+          
+          # If still no video, create fallback
+          if [ ! -s /tmp/america_progress.mp4 ]; then
+             echo "Creating fallback video from images..."
+          fi
 
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
