@@ -124,7 +124,7 @@ jobs:
                   x = cx + int(lon * 3)
                   y = cy - int(lat * 2.5)
                   # Pulsing effect
-                  radius = 5 + int(2 * math.sin(os.times().system_time * 0.1))
+                  radius = 5
                   draw.ellipse([x-radius, y-radius, x+radius, y+radius], fill=(255, 80, 80))
 
           # Generate all 360 frames
