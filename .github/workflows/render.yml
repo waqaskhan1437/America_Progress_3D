@@ -56,22 +56,31 @@ jobs:
       - name: Upload to catbox.moe
         id: catbox
         run: |
+          # Try litterbox first (72h temp hosting, more reliable)
+          echo "Uploading to litterbox (72h)..."
           response=$(curl -s -X POST \
             -F "reqtype=fileupload" \
             -F "time=72h" \
             -F "fileToUpload=@/tmp/output_video.mp4" \
-            https://catbox.moe/user/api.php 2>/dev/null || echo "FAILED")
+            https://litterbox.catbox.moe/resources/internals/api.php 2>/dev/null || echo "FAILED")
           
-          echo "Catbox response: $response"
-          echo "VIDEO_URL=$response" >> $GITHUB_OUTPUT
+          echo "Litterbox response: $response"
           
-          if [[ "$response" == "FAILED" ]] || [[ ! "$response" == *.catbox.moe* ]]; then
-            echo "Trying 0x0.st..."
-            alt_response=$(curl -s -X POST -F "file=@/tmp/output_video.mp4" https://0x0.st)
-            echo "0x0 response: $alt_response"
-            if [[ "$alt_response" == http* ]]; then
-              echo "VIDEO_URL=$alt_response" >> $GITHUB_OUTPUT
-              echo "0x0 URL: $alt_response"
+          if [[ "$response" == http* ]]; then
+            echo "VIDEO_URL=$response" >> $GITHUB_OUTPUT
+          else
+            # Fallback: try catbox permanent
+            echo "Trying catbox permanent..."
+            response2=$(curl -s -X POST \
+              -F "reqtype=fileupload" \
+              -F "fileToUpload=@/tmp/output_video.mp4" \
+              https://catbox.moe/user/api.php 2>/dev/null || echo "FAILED")
+            echo "Catbox response: $response2"
+            if [[ "$response2" == http* ]]; then
+              echo "VIDEO_URL=$response2" >> $GITHUB_OUTPUT
+            else
+              echo "VIDEO_URL=UPLOAD_FAILED" >> $GITHUB_OUTPUT
+              echo "Both upload services failed"
             fi
           fi
 
