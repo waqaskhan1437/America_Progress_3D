@@ -17,120 +17,54 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg python3-pip python3-pil
 
-      - name: Install Python packages
-        run: pip install pillow numpy
-
-      - name: Generate High-Quality Animated Video
+      - name: Generate High-Quality 2-Minute Video
         run: |
           python3 << 'PYTHON_EOF'
-          from PIL import Image, ImageDraw, ImageFont
+          from PIL import Image, ImageDraw
           import os
           import math
 
           os.makedirs("/tmp/frames", exist_ok=True)
 
-          # Detailed story script for 2 minutes
-          # Frames 1-360 at 3fps = 120 seconds = 2 minutes
+          # Generate 240 frames for 2 minutes at 2fps (slower for better quality)
+          total_frames = 240
           
-          # Scene definitions with rich details
           scenes = [
-              # === CHAPTER 1: COLONIAL ERA (1-60) ===
-              (1, 30, "1607", "Colonial Beginning\nJamestown, Virginia - First English Settlement", (60, 40, 20)),
-              (31, 60, "1607-1733", "13 Colonies\nMassachusetts to Georgia - Atlantic Seaboard", (50, 50, 30)),
-              
-              # === CHAPTER 2: REVOLUTION (61-120) ===
-              (61, 80, "1776", "Independence\nDeclaration of Independence - A Nation is Born", (70, 70, 50)),
-              (81, 100, "1803", "Louisiana Purchase\n$15 Million - Doubled the Nation's Size", (40, 80, 30)),
-              (101, 120, "1849", "Westward Expansion\nManifest Destiny - Gold Rush Era", (90, 70, 40)),
-              
-              # === CHAPTER 3: CIVIL WAR & INDUSTRY (121-180) ===
-              (121, 145, "1861-1865", "Civil War\nBrother vs Brother - Union Victory", (80, 60, 60)),
-              (146, 165, "1865-1900", "Industrial Revolution\nFactories, Steel, Railroads Transform America", (100, 70, 50)),
-              (166, 180, "1880-1920", "Immigration Wave\n30 Million Seek American Dream", (70, 60, 90)),
-              
-              # === CHAPTER 4: WORLD POWER (181-240) ===
-              (181, 200, "1917-1918", "World War I\nAmerica Becomes World Power", (110, 100, 60)),
-              (201, 220, "1920s", "Roaring Twenties\nJazz, Prosperity, Cultural Revolution", (130, 90, 70)),
-              (221, 240, "1929-1939", "Great Depression\n25% Unemployment - Economic Crisis", (50, 50, 60)),
-              
-              # === CHAPTER 5: WWII & SUPERPOWER (241-300) ===
-              (241, 265, "1941-1945", "World War II\nPearl Harbor to D-Day - Allied Victory", (100, 100, 90)),
-              (266, 285, "1945-1960", "Post-War Boom\nSuburbs, Highways, American Dream", (110, 130, 150)),
-              (286, 300, "1950-1991", "Cold War Era\nSpace Race vs Soviet Union", (90, 90, 110)),
-              
-              # === CHAPTER 6: MODERN AMERICA (301-360) ===
-              (301, 325, "1990-2000", "Digital Revolution\nInternet, Computers, Technology", (70, 110, 160)),
-              (326, 350, "2001-2024", "Modern Superpower\nAI, Space Exploration, Innovation Leader", (80, 140, 130)),
-              (351, 360, "2024+", "The Future Awaits\nAmerica's Story Continues...", (60, 100, 120)),
+              (1, 20, "1607", "Colonial Beginning\nJamestown, Virginia", (40, 20, 10)),
+              (21, 40, "1607-1733", "13 Colonies\nMassachusetts to Georgia", (50, 30, 20)),
+              (41, 60, "1776", "Independence\nDeclaration of Independence", (60, 50, 30)),
+              (61, 80, "1803", "Louisiana Purchase\n$15 Million - Nation Doubled", (40, 70, 30)),
+              (81, 100, "1849", "Westward Expansion\nManifest Destiny", (80, 60, 40)),
+              (101, 120, "1865", "Civil War Ends\nReconstruction", (70, 50, 50)),
+              (121, 140, "1900", "Industrial Revolution\nFactories & Railroads", (90, 70, 50)),
+              (141, 160, "1920", "Roaring Twenties\nJazz & Prosperity", (100, 80, 60)),
+              (161, 180, "1945", "World War II\nAllied Victory", (80, 80, 70)),
+              (181, 200, "1960", "Post-War Boom\nSuburbs & Highways", (90, 100, 120)),
+              (201, 220, "2000", "Digital Age\nInternet & Technology", (70, 90, 140)),
+              (221, 240, "2024", "Modern America\nInnovation Leader", (60, 110, 130)),
           ]
 
-          # Development factors
-          factors = [
-              "🏭 Industrial Innovation",
-              "🌍 Immigration & Diversity",
-              "⛽ Natural Resources",
-              "🎓 Education & Research",
-              "⚖️ Democratic Governance",
-              "💰 Capital Investment"
-          ]
+          factors = ["🏭 Industrial Innovation", "🌍 Immigration & Diversity", "⛽ Natural Resources", 
+                    "🎓 Education & Research", "⚖️ Democratic Governance", "💰 Capital Investment"]
 
-          # Color schemes for each era
-          era_colors = {
-              "colonial": (30, 60, 40),
-              "revolution": (50, 70, 60),
-              "civil_war": (80, 60, 60),
-              "industrial": (90, 70, 50),
-              "world_war": (100, 90, 70),
-              "modern": (80, 120, 140)
-          }
+          # Pre-render globe base (static, just draw once)
+          base_globe = Image.new('RGB', (1280, 720), (10, 10, 20))
+          draw = ImageDraw.Draw(base_globe)
+          
+          # Draw globe circle
+          cx, cy, size = 640, 340, 180
+          draw.ellipse([cx-size, cy-size, cx+size, cy+size], fill=(5, 30, 80))
+          draw.ellipse([cx-size, cy-size, cx+size, cy+size], outline=(50, 100, 180), width=3)
+          
+          # Draw continents (simplified)
+          continents = [(-100, 40, 60, 50), (-60, -10, 40, 55), (20, 40, 70, 50), (70, 30, 90, 65)]
+          for lx, ly, lw, lh in continents:
+              draw.ellipse([cx+lx-lw//2, cy+ly-lh//2, cx+lx+lw//2, cy+ly+lh//2], fill=(20, 70, 35))
 
-          def draw_3d_globe(draw, cx, cy, size, rotation, land_color=(30, 100, 40)):
-              """Draw a pseudo-3D rotating globe"""
-              # Ocean (gradient effect)
-              draw.ellipse([cx-size, cy-size, cx+size, cy+size], fill=(10, 40, 100))
-              
-              # Draw continents with perspective rotation
-              continents = [
-                  (-0.9, 0.35, 0.55, 0.45),  # North America
-                  (-0.65, -0.45, 0.35, 0.55), # South America
-                  (0.05, 0.35, 0.45, 0.45),   # Europe
-                  (0.35, 0.2, 0.75, 0.65),    # Asia/Africa
-              ]
-              
-              for lx, ly, sw, sh in continents:
-                  # Apply rotation
-                  rotated_lx = lx * math.cos(rotation) - ly * 0.3 * math.sin(rotation)
-                  rotated_ly = lx * math.sin(rotation * 0.5) + ly * math.cos(rotation)
-                  
-                  draw.ellipse([cx + rotated_lx*size - sw*size, 
-                               cy + rotated_ly*size - sh*size,
-                               cx + rotated_lx*size + sw*size, 
-                               cy + rotated_ly*size + sh*size],
-                              fill=land_color)
+          print("Generating 240 frames...")
 
-          def draw_city_dots(draw, cx, cy, era):
-              """Draw city markers based on era"""
-              city_sets = {
-                  "colonial": [(-74, 40), (-76, 38), (-78, 37)],  # East coast
-                  "revolution": [(-74, 40), (-75, 39), (-77, 38), (-71, 42)],
-                  "industrial": [(-74, 40), (-87, 41), (-118, 34), (-42, 41), (-77, 38)],
-                  "world_war": [(-74, 40), (-87, 41), (-118, 34), (-77, 38), (-122, 37), (-84, 33)],
-                  "cold_war": [(-74, 40), (-87, 41), (-118, 34), (-77, 38), (-122, 37), (-80, 25), (-37, 23)],
-                  "modern": [(-74, 40), (-118, 34), (-87, 41), (-77, 38), (-122, 37), (-80, 25), (-0.1, 51.5)],
-              }
-              
-              cities = city_sets.get(era, city_sets["modern"])
-              for lon, lat in cities:
-                  x = cx + int(lon * 3)
-                  y = cy - int(lat * 2.5)
-                  # Pulsing effect
-                  radius = 5
-                  draw.ellipse([x-radius, y-radius, x+radius, y+radius], fill=(255, 80, 80))
-
-          # Generate all 360 frames
-          print("Generating 360 frames for 2-minute video...")
-          for frame in range(1, 361):
-              # Determine current scene
+          for frame in range(1, total_frames + 1):
+              # Find current scene
               current = scenes[-1]
               for s in scenes:
                   if s[0] <= frame <= s[1]:
@@ -138,115 +72,68 @@ jobs:
                       break
               
               start_f, end_f, year, desc, bg = current
+              progress = frame / total_frames
               
-              # Progress within scene
-              scene_progress = (frame - start_f) / max(1, end_f - start_f)
-              total_progress = frame / 360
-              
-              # Determine era
-              if frame < 61: era = "colonial"
-              elif frame < 121: era = "revolution"
-              elif frame < 181: era = "civil_war"
-              elif frame < 241: era = "industrial"
-              elif frame < 301: era = "world_war"
-              else: era = "modern"
-              
-              # Create gradient background
-              img = Image.new('RGB', (1280, 720), bg)
-              
-              # Add subtle gradient overlay
-              overlay = Image.new('RGB', (1280, 720), (0, 0, 0))
-              draw = ImageDraw.Draw(overlay)
-              
-              # Draw 3D globe with rotation
-              globe_rotation = total_progress * math.pi * 2
-              draw_3d_globe(draw, 640, 320, 200, globe_rotation)
-              
-              # Add globe highlight/shine
-              draw.ellipse([580, 260, 700, 380], fill=(255, 255, 255, 30))
-              
-              # Draw city dots based on era
-              draw_city_dots(draw, 640, 320, era)
-              
-              # Add glow effect around globe
-              for r in range(250, 320, 10):
-                  alpha = int(30 * (1 - (r - 200) / 120))
-                  draw.ellipse([640-r, 320-r, 640+r, 320+r], 
-                              outline=(100, 150, 255, alpha))
-              
-              # Composite
-              for x in range(1280):
-                  for y in range(720):
-                      bg_pixel = img.getpixel((x, y))
-                      overlay_pixel = overlay.getpixel((x, y))
-                      if len(overlay_pixel) == 4 and overlay_pixel[3] > 0:
-                          alpha = overlay_pixel[3] / 255
-                          new_pixel = tuple(int(bg_pixel[i] * (1-alpha) + overlay_pixel[i] * alpha) 
-                                          for i in range(3))
-                          img.putpixel((x, y), new_pixel)
-              
+              # Copy base and modify
+              img = base_globe.copy()
               draw = ImageDraw.Draw(img)
               
-              # Draw year (big)
-              draw.text((640, 80), year, fill=(255, 215, 0), anchor="mm")
-              draw.text((640, 115), desc, fill=(200, 200, 200), anchor="mm", spacing=5)
+              # Add glow effect around globe
+              for r in range(200, 240, 8):
+                  draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=(80, 120, 200, 40))
               
-              # Progress bar (bottom)
-              bar_x = 140
-              bar_y = 700
-              bar_w = 1000
-              bar_h = 8
+              # Draw city dots based on era (more cities in later frames)
+              num_cities = 3 + int((frame / total_frames) * 8)
+              city_positions = [
+                  (-74, 40), (-87, 41), (-118, 34), (-77, 38), (-122, 37), 
+                  (-80, 25), (-71, 42), (-84, 33), (2.35, 48.85), (139.69, 35.68)
+              ][:num_cities]
               
-              # Background bar
-              draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], fill=(40, 40, 40))
-              # Progress fill
-              draw.rectangle([bar_x, bar_y, bar_x + int(bar_w * total_progress), bar_y + bar_h], fill=(255, 215, 0))
+              for lon, lat in city_positions:
+                  x = cx + int(lon * 2.8)
+                  y = cy - int(lat * 2.2)
+                  # Add glow
+                  draw.ellipse([x-10, y-10, x+10, y+10], fill=(255, 50, 50, 80))
+                  draw.ellipse([x-4, y-4, x+4, y+4], fill=(255, 80, 80))
               
-              # Timeline markers
-              timeline_points = [(1, "1607"), (61, "1776"), (121, "1865"), (181, "1900"), 
-                                 (241, "1945"), (301, "2000"), (360, "2024")]
-              for f, y in timeline_points:
-                  x = 140 + (f / 360) * 1000
-                  if f <= frame:
-                      draw.ellipse([x-4, bar_y+12, x+4, bar_y+20], fill=(255, 215, 0))
-                  else:
-                      draw.ellipse([x-4, bar_y+12, x+4, bar_y+20], fill=(80, 80, 80))
-                  draw.text((x, bar_y+28), y, fill=(100, 100, 100), anchor="mm", font_size=12)
+              # Add scene text
+              draw.text((cx, 80), year, fill=(255, 220, 0), anchor="mm")
+              draw.text((cx, 120), desc, fill=(200, 200, 200), anchor="mm")
               
-              # Chapter indicator
-              chapter = 1
-              for i, s in enumerate(scenes):
-                  if frame >= s[0]:
-                      chapter = i // 3 + 1
-              draw.text((1200, 50), f"Chapter {chapter}/6", fill=(150, 150, 150), anchor="rm")
+              # Add progress bar
+              bar_w = 800
+              draw.rectangle([cx-bar_w//2, 680, cx+bar_w//2, 690], fill=(30, 30, 30))
+              draw.rectangle([cx-bar_w//2, 680, cx-bar_w//2 + int(bar_w * progress), 690], fill=(255, 220, 0))
               
-              # Development factors (after frame 60)
-              if frame > 60:
-                  # Draw factors box
-                  draw.rectangle([20, 70, 180, 250], fill=(0, 0, 0, 150))
+              # Add factors (after frame 40)
+              if frame > 40:
                   for i, f in enumerate(factors):
-                      draw.text((30, 80 + i * 28), f, fill=(160, 160, 160), font_size=14)
+                      draw.text((30, 100 + i * 25), f, fill=(150, 150, 150))
               
-              # Time counter
-              seconds = frame // 3
-              minutes = seconds // 60
-              seconds = seconds % 60
-              draw.text((1180, 680), f"{minutes:02d}:{seconds:02d}", fill=(100, 100, 100), anchor="rm")
+              # Add chapter
+              chapter = (frame // 20) + 1
+              draw.text((1200, 30), f"Ch {chapter}/6", fill=(100, 100, 100), anchor="rm")
               
-              # Save frame
-              img.save(f"/tmp/frames/frame_{frame:04d}.png", quality=95)
+              # Add time
+              secs = frame // 2
+              mins = secs // 60
+              secs = secs % 60
+              draw.text((1180, 690), f"{mins:02d}:{secs:02d}", fill=(100, 100, 100), anchor="rm")
               
-              if frame % 30 == 0:
-                  print(f"  Generated {frame}/360 frames...")
+              # Save
+              img.save(f"/tmp/frames/frame_{frame:04d}.png", quality=90)
+              
+              if frame % 40 == 0:
+                  print(f"  {frame}/{total_frames}")
 
-          print(f"Done! Total frames: {len(os.listdir('/tmp/frames'))}")
+          print(f"Done! {len(os.listdir('/tmp/frames'))} frames")
           PYTHON_EOF
 
       - name: Create Video with FFmpeg
         run: |
           ls /tmp/frames/ | wc -l
           cd /tmp/frames
-          ffmpeg -framerate 3 -i frame_%04d.png -c:v libx264 -preset fast -pix_fmt yuv420p -y /tmp/america_progress.mp4
+          ffmpeg -y -framerate 2 -i frame_%04d.png -c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p /tmp/america_progress.mp4
           ls -lh /tmp/america_progress.mp4
 
       - name: Upload Video Artifact
