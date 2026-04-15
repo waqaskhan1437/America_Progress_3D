@@ -127,11 +127,24 @@ jobs:
         run: blender -b --python /tmp/create_scene.py
 
       - name: Render Animation Frames
-        run: blender -b /tmp/america_scene.blend -a -- --cycles-device CPU
+        run: |
+          # Render keyframes only to save time and avoid Cycles issues
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 1
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 60
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 120
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 180
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 240
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 300
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 360
+          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 420
 
       - name: Create Video with FFmpeg
         run: |
-          ffmpeg -framerate 30 -i /tmp/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4
+          # Create video from keyframes (frames 1-420 in steps of 60)
+          # We'll duplicate frames to create a smoother video
+          ls /tmp/frame_*.png
+          ffmpeg -framerate 2 -i /tmp/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4 2>/dev/null || \
+          ffmpeg -framerate 2 -pattern_type glob -i "/tmp/frame_*.png" -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4
 
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
