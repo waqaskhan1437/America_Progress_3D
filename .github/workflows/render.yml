@@ -15,138 +15,110 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y blender ffmpeg wget unzip libegl1 libgl1
+          sudo apt-get install -y ffmpeg python3-pip python3-pil
 
-      - name: Generate 3D Globe
-        run: echo "Skipping - creating globe in scene step"
+      - name: Install Python packages
+        run: pip install pillow numpy
 
-      - name: Create America Progress Scene
+      - name: Generate 3D Frame Images
         run: |
-          cat > /tmp/create_scene.py << 'PYTHON_EOF'
-          import bpy
-          import math
+          python3 << 'PYTHON_EOF'
+          from PIL import Image, ImageDraw, ImageFont
+          import os
 
-          # Clear existing scene
-          bpy.ops.object.select_all(action='SELECT')
-          bpy.ops.object.delete()
+          # Create output directory
+          os.makedirs("/tmp/frames", exist_ok=True)
 
-          # Set render engine to EEVEE (not Cycles)
-          bpy.context.scene.render.engine = 'BLENDER_EEVEE'
-
-          # Create globe
-          bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=4, radius=4, location=(0, 0, 0))
-          globe = bpy.context.object
-          globe.name = "Globe"
-          
-          # Blue ocean material
-          mat = bpy.data.materials.new(name="Ocean")
-          mat.use_nodes = True
-          bsdf = mat.node_tree.nodes.get("Principled BSDF")
-          bsdf.inputs[0].default_value = (0.05, 0.15, 0.35, 1)
-          globe.data.materials.append(mat)
-
-          # Animate globe rotation
-          globe.rotation_euler = (0, 0, 0)
-          globe.keyframe_insert(data_path="rotation_euler", frame=1)
-          globe.rotation_euler = (0, 0, math.radians(360))
-          globe.keyframe_insert(data_path="rotation_euler", frame=420)
-
-          # Timeline text
-          timeline_data = [
-              (1, 60, "1607: Colonial Beginning\nJamestown, Virginia"),
-              (61, 120, "1776: Independence\nDeclaration of Independence"),
-              (121, 180, "1803: Louisiana Purchase\nDoubled the nation"),
-              (181, 240, "1865: Civil War Ends"),
-              (241, 300, "1900: Industrial Power\nFactories"),
-              (301, 360, "1950: World Superpower"),
-              (361, 420, "2024: Modern America")
+          # Timeline data with colors
+          timeline = [
+              (1, "1607: Colonial Beginning\nJamestown, Virginia", (139, 69, 19)),
+              (60, "1776: Independence\nDeclaration of Independence", (70, 130, 180)),
+              (120, "1803: Louisiana Purchase\nNation Doubled", (34, 139, 34)),
+              (180, "1865: Civil War Ends\nReconstruction", (128, 128, 128)),
+              (240, "1900: Industrial Power\nFactories & Railroads", (255, 140, 0)),
+              (300, "1950: World Superpower\nPost-WWII Era", (0, 100, 200)),
+              (360, "2024: Modern America\nTechnology & Innovation", (0, 200, 100)),
           ]
 
-          for frame_start, frame_end, text in timeline_data:
-              bpy.ops.object.text_add()
-              txt = bpy.context.object
-              txt.data.body = text
-              txt.location = (0, 0, 6)
-              txt.rotation_euler = (math.radians(90), 0, 0)
-              txt.scale = (0.4, 0.4, 0.4)
-              txt.data.align_x = 'CENTER'
-              txt.data.size = 0.5
+          # Development factors text
+          factors = [
+              "• Industrial Innovation",
+              "• Immigration & Diversity", 
+              "• Natural Resources",
+              "• Education & Research",
+              "• Democratic Governance",
+              "• Capital Investment"
+          ]
+
+          # Create frames for each timeline point
+          for frame_num, (frame_id, text, color) in enumerate(timeline):
+              # Create image with dark background
+              img = Image.new('RGB', (1280, 720), (10, 15, 30))
+              draw = ImageDraw.Draw(img)
+
+              # Draw globe (simple circle representation)
+              center_x, center_y = 640, 360
+              radius = 200
               
-              txt.hide_viewport = True
-              txt.keyframe_insert(data_path="hide_viewport", frame=1)
-              txt.hide_viewport = False
-              txt.keyframe_insert(data_path="hide_viewport", frame=frame_start)
-              txt.hide_viewport = True
-              txt.keyframe_insert(data_path="hide_viewport", frame=frame_end)
+              # Ocean
+              draw.ellipse([center_x - radius, center_y - radius, 
+                          center_x + radius, center_y + radius], 
+                         fill=(20, 60, 120))
+              
+              # Land masses (simplified)
+              land_positions = [
+                  (-80, 35, 50, 40),   # North America
+                  (-50, -10, 40, 60),  # South America  
+                  (10, 40, 70, 50),    # Europe
+                  (50, 30, 100, 70),   # Asia/Africa
+              ]
+              for lx, ly, lw, lh in land_positions:
+                  draw.ellipse([center_x + lx - lw//2, center_y + ly - lh//2,
+                               center_x + lx + lw//2, center_y + ly + lh//2],
+                              fill=(30, 100, 40))
 
-          # Camera
-          bpy.ops.object.camera_add(location=(0, -15, 8))
-          cam = bpy.context.object
-          cam.rotation_euler = (math.radians(70), 0, 0)
-          bpy.context.scene.camera = cam
-          
-          cam.location = (15, -15, 8)
-          cam.keyframe_insert(data_path="location", frame=1)
-          cam.location = (-15, 15, 10)
-          cam.keyframe_insert(data_path="location", frame=210)
-          cam.location = (0, -18, 12)
-          cam.keyframe_insert(data_path="location", frame=420)
+              # City markers (red dots)
+              cities = [
+                  (-74, 40, "New York"),
+                  (-118, 34, "Los Angeles"),
+                  (-87, 41, "Chicago"),
+                  (-77, 38, "Washington"),
+              ]
+              for lon, lat, name in cities:
+                  # Convert lat/lon to position
+                  x = center_x + int(lon * 2.5)
+                  y = center_y - int(lat * 2.5)
+                  draw.ellipse([x-6, y-6, x+6, y+6], fill=(255, 50, 50))
 
-          # Light
-          bpy.ops.object.light_add(type='SUN', location=(10, 10, 20))
-          light = bpy.context.object
-          light.data.energy = 3
+              # Draw timeline text
+              draw.text((center_x, 550), text, fill=color, anchor="mm")
 
-          # Render settings - USE EEVEE
-          bpy.context.scene.render.engine = 'BLENDER_EEVEE'
-          bpy.context.scene.render.resolution_x = 1280
-          bpy.context.scene.render.resolution_y = 720
-          bpy.context.scene.frame_start = 1
-          bpy.context.scene.frame_end = 420
-          
-          # Save scene
-          bpy.ops.wm.save_as_mainfile(filepath="/tmp/america_scene.blend")
-          print("Scene saved with EEVEE!")
+              # Draw factors on left side
+              for i, factor in enumerate(factors):
+                  draw.text((50, 100 + i * 35), factor, fill=(180, 180, 180))
+
+              # Draw title
+              draw.text((center_x, 50), "THE RISE OF AMERICA", fill=(255, 215, 0), anchor="mm")
+              
+              # Draw frame number
+              draw.text((1180, 680), f"Frame {frame_id}", fill=(100, 100, 100))
+
+              # Save frame
+              img.save(f"/tmp/frames/frame_{frame_id:04d}.png")
+
+          print("Generated 8 keyframe images!")
+
+          # List frames
+          for f in sorted(os.listdir("/tmp/frames")):
+              print(f"  {f}")
           PYTHON_EOF
-          blender -b --python /tmp/create_scene.py
-
-      - name: Create animation script
-        run: |
-          cat > /tmp/render_animation.py << 'PYTHON_EOF'
-          import bpy
-          import os
-          
-          # Ensure output directory exists
-          os.makedirs("/tmp/frames", exist_ok=True)
-          
-          # Render animation
-          bpy.ops.render.render(animation=True)
-          
-          print("Rendering complete!")
-          PYTHON_EOF
-
-      - name: Run Blender Scene Creation
-        run: blender -b --python /tmp/create_scene.py
-
-      - name: Render Animation Frames
-        run: |
-          # Render keyframes only to save time and avoid Cycles issues
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 1
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 60
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 120
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 180
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 240
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 300
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 360
-          blender -b /tmp/america_scene.blend -o /tmp/frame_ -f 420
 
       - name: Create Video with FFmpeg
         run: |
-          # Create video from keyframes (frames 1-420 in steps of 60)
-          # We'll duplicate frames to create a smoother video
-          ls /tmp/frame_*.png
-          ffmpeg -framerate 2 -i /tmp/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4 2>/dev/null || \
-          ffmpeg -framerate 2 -pattern_type glob -i "/tmp/frame_*.png" -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4
+          ls /tmp/frames/
+          cd /tmp/frames
+          ffmpeg -framerate 2 -i frame_%04d.png -c:v libx264 -pix_fmt yuv420p -y /tmp/america_progress.mp4
+          ls -la /tmp/america_progress.mp4
 
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
